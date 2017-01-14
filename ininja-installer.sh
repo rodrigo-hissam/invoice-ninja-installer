@@ -16,23 +16,16 @@
 clear
 
 name="ininja"
-hostname="$(hostname)"
 fqdn="$(hostname)"
 tmp=/tmp/$name
 logfile=/var/log/invoice-ninja-install.log
 webdir=/var/www/html
+hostname="$(hostname)"
 user=$USER
-app_key="$(< /dev/urandom tr -dc _A-Za-z-0-9 2>&1 | head -c32)"
 app_user=${name}'_user'
-
-spin[0]="-"
-spin[1]="\\"
-spin[2]="|"
-spin[3]="/"
 
 rm -rf ${tmp:?}
 mkdir $tmp
-
 
 cat << EOF
 
@@ -106,11 +99,11 @@ sudo apt-get install nginx -y
 echo ""
 
 
-
 # MARIADB
 echo ""
 echo ""
 echo  "- Installing MariaDB "
+echo ""
 sudo apt-get install software-properties-common -y
 sudo apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8
 sudo add-apt-repository 'deb [arch=amd64,i386] http://mirror.jmu.edu/pub/mariadb/repo/10.1/ubuntu yakkety main'
@@ -119,9 +112,11 @@ sudo apt-get install mariadb-server -y
 echo ""
 echo ""
 echo "- Hardening mariadb installation"
+echo ""
 mysql_secure_installation
 echo ""
-echo "Create the database for Invoice Ninja..."
+echo "Creating the database for Invoice Ninja..."
+echo ""
 echo -n "Please enter your MARIADB root password: "
 read -s mariadbrootpw
 mysql -uroot -p${mariadbrootpw} -e "CREATE DATABASE ${name};"
@@ -149,6 +144,7 @@ sudo mv composer.phar /usr/local/bin/composer
 #Invoice Ninja
 echo ""
 echo  "- Installing git and cloning the Invoice Ninja repo "
+echo ""
 sudo apt-get install git
 git clone https://github.com/hillelcoren/invoice-ninja.git  $name 
 sudo mv $name $webdir
@@ -164,16 +160,17 @@ composer install --no-dev -o
 # Setting env variables
 echo ""
 echo "- Setting up .env file"
+echo ""
 mv .env.example .env
 sudo sed -i.bak "s/DB_DATABASE=ninja/DB_DATABASE=${name}/g" .env
 sudo sed -i.bak "s/DB_USERNAME=ninja/DB_USERNAME=${app_user}/g" .env
 sudo sed -i.bak "s/DB_PASSWORD=ninja/DB_PASSWORD=${mariadbuserpw}/g" .env
-
 sudo sed -i.bak "s/APP_UR:L=http:\/\/ninja.dev/APP_URL=${fqdn}/g" .env
 
 # Running db migrations and seeding the db
 echo ""
-echo "- Running invoice ninja db migration, this will take a while"
+echo "- Running invoice ninja db migration, this will take a long time...."
+echo ""
 php artisan migrate
 php artisan db:seed
 
@@ -183,6 +180,7 @@ php artisan key:generate
 # Creating a new PHP-FPM pool for our user
 echo ""
 echo "- Creating a new PHP-FPM pool"
+echo ""
 cat  > $tmp/$user.conf << EOF
 [$user]
 user = $user
@@ -203,13 +201,16 @@ sudo mv $tmp/$user.conf /etc/php/7.0/fpm/pool.d/
 sudo systemctl restart php7.0-fpm.service 
 
 echo ""
-echo "# Creating self signed certificate and nginx config"
+echo "- Creating self signed certificate"
 echo""
 # Create the SSL self sigend certificate
 sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/nginx-selfsigned.key -out /etc/ssl/certs/nginx-selfsigned.crt
 # Diffie-Hellman group, used in negotiating Perfect Forward Secrecy with clients.
 sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 
+echo ""
+echo "- Creating nginx config file (/etc/nginx/conf.d/ssl.conf"
+echo ""
 cat > $tmp/ssl.conf << EOF
 server {
     listen 443 http2 ssl;
@@ -290,7 +291,11 @@ EOF
 
 sudo mv $tmp/ssl.conf /etc/nginx/conf.d/
 
+echo ""
+echo "- Restarting php and nginx services"
+echo ""
 sudo systemctl restart php7.0-fpm.service 
 sudo systemctl restart nginx.service
 
+echo ""
 echo "ALL DONE!!! Point your web browser to ${fqdn} and complete the setup"
