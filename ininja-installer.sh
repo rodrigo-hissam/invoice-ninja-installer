@@ -210,7 +210,7 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/privat
 # Diffie-Hellman group, used in negotiating Perfect Forward Secrecy with clients.
 sudo openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
 
-cat > $tmp/$name/ssl.conf << EOF
+cat > $tmp/ssl.conf << EOF
 server {
     listen 443 http2 ssl;
     listen [::]:443 http2 ssl;
@@ -286,10 +286,9 @@ server {
         server_name 192.168.2.26;
         return  301 https://\$server_name\$request_uri;
 }
-
 EOF
 
-sudo mv $tmp/$name/ssl.conf /etc/nginx/conf.d/
+sudo mv $tmp/ssl.conf /etc/nginx/conf.d/
 
 sudo systemctl restart php7.0-fpm.service 
 sudo systemctl restart nginx.service
