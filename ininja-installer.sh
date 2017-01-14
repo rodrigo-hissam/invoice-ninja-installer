@@ -283,7 +283,7 @@ server {
 
 server {
         listen 80;
-        server_name 192.168.2.26;
+        server_name $fqdn;
         return  301 https://\$server_name\$request_uri;
 }
 EOF
